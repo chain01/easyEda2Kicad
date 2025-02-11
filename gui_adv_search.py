@@ -42,9 +42,9 @@ class AdvSearchFrame(wx.Dialog):
             wx.ID_ANY,
             style=wx.dataview.DV_ROW_LINES | wx.dataview.DV_SINGLE | wx.dataview.DV_HORIZ_RULES | wx.dataview.DV_VERT_RULES
         )
-        self.list_search_resutls.AppendTextColumn("LCID", mode=wx.dataview.DATAVIEW_CELL_INERT, width=80)
-        self.list_search_resutls.AppendTextColumn("Part No.", mode=wx.dataview.DATAVIEW_CELL_INERT, width=100)
-        self.list_search_resutls.AppendTextColumn("Manufacturer", mode=wx.dataview.DATAVIEW_CELL_INERT, width=100)
+        self.list_search_resutls.AppendTextColumn("立创料号", mode=wx.dataview.DATAVIEW_CELL_INERT, width=80)
+        self.list_search_resutls.AppendTextColumn("编号.", mode=wx.dataview.DATAVIEW_CELL_INERT, width=100)
+        self.list_search_resutls.AppendTextColumn("厂商", mode=wx.dataview.DATAVIEW_CELL_INERT, width=100)
         # self.list_search_resutls.AppendColumn("SMT", format=wx.LIST_FORMAT_LEFT, width=50)
         self.list_search_resutls.AppendToggleColumn("SMT", mode=wx.dataview.DATAVIEW_CELL_INERT, width=50)
         self.list_search_resutls.AppendTextColumn("Footprint", mode=wx.dataview.DATAVIEW_CELL_INERT, width=150)

@@ -36,34 +36,34 @@ LC_ICON = "assets/lc.png"
 
 PART_INFO_CONF = {
     'brand': {
-        'label': 'Manufacturer',
+        'label': '品牌',
         'name': 'brand',
-        'lc_key': 'brandNameEn',
+        'lc_key': 'Manufacturer',
     },
     'model': {
-        'label': 'Mfr. Part #',
+        'label': '厂家编号',
         'name': 'model',
-        'lc_key': 'productModel'
+        'lc_key': 'Manufacturer Part'
     },
     'package': {
-        'label': 'Package',
+        'label': '封装',
         'name': 'package',
-        'lc_key': 'encapStandard'
+        'lc_key': 'Supplier Footprin'
     },
     'catelog': {
-        'label': 'Catelog',
+        'label': '分类',
         'name': 'catelog',
         'lc_key': 'parentCatalogName'
     },
     'sub_catelog': {
-        'label': 'Sub Catelog',
+        'label': '子类',
         'name': 'sub_catelog',
         'lc_key': 'catalogName'
     },
     'desc': {
-        'label': 'Description',
+        'label': '描述',
         'name': 'desc',
-        'lc_key': 'productIntroEn',
+        'lc_key': 'description',
         'multiline': True
     }
 }
@@ -216,26 +216,24 @@ class LCPART:
     def get_ds_link(self):
         if not self.part_loaded:
             self.get_part_detail_from_easyeda()
-
-        return self.part_detail.get('pdfUrl', "")
+        return self.part_detail["attributes"].get('Datasheet', "")
 
     def get_part_info(self):
         if not self.part_loaded:
             self.get_part_detail_from_easyeda()
-
         return self.part_detail
 
     def get_part_name(self):
         if not self.part_loaded:
             self.get_part_detail_from_easyeda()
 
+        print(self.part_detail.get("title", "N / A"))
         return self.part_detail.get("title", "N / A")
 
     def get_part_img(self):
         if not self.part_loaded:
             self.get_part_detail_from_easyeda()
-
-        img_urls = self.part_detail.get("productImages", None)  # type: ignore
+        img_urls = self.part_detail.get("images", None)  # type: ignore
 
         if img_urls is None or len(img_urls) == 0:
             return None
@@ -252,19 +250,29 @@ class LCPART:
         return img
 
     def get_part_detail_from_easyeda(self):
-        logger.info("Fetching Part Info.")
+        logger.info("获取器件信息")#翻译：获取部件信息
         # req = requests.get(f'https://wwwapi.lcsc.com/v1/products/detail?product_code={self.lcid}')
-        req = requests.get(f'https://wmsc.lcsc.com/wmsc/product/detail?productCode={self.lcid}')
-        data = req.json()
+        # req = requests.get(f'https://wmsc.lcsc.com/wmsc/product/detail?productCode={self.lcid}')
+        payload = {
+            'pageSize': 50,
+            'page': 1,
+            'returnListStyle': 'classifyarr',
+            'wd': self.lcid
+        }
+        r = requests.post(
+            "https://pro.lceda.cn/api/devices/search",
+            data=payload
+        )
+        data = r.json()
 
         if isinstance(data, dict):
-            self.part_detail = data['result']
+            self.part_detail = data['result']['lists']['lcsc'][0]
 
         self.part_loaded = True
 
     def get_svg_from_easyeda(self):
         self.svg_loaded = True
-        logger.info("Fetching Part Symbal & Footprint.")
+        logger.info("获取符号和封装")#翻译：获取部件符号和封装
         req = requests.get(
             f'https://easyeda.com/api/products/{self.lcid}/svgs'
         )
@@ -320,7 +328,7 @@ class Main(wx.Frame):
         kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
         self.SetSize((900, 770))
-        self.SetTitle("KiCAD LCSC Part Manager")
+        self.SetTitle("立创KiCAD封装转换工具")
 
         self.panel_1 = wx.Panel(self, wx.ID_ANY)
 
@@ -330,7 +338,7 @@ class Main(wx.Frame):
         sizer_1.Add(sizer_2, 0, 0, wx.BOTTOM)
 
         label_1 = wx.StaticText(
-            self.panel_1, wx.ID_ANY, "LCID:", style=wx.ALIGN_RIGHT
+            self.panel_1, wx.ID_ANY, "料号:", style=wx.ALIGN_RIGHT
         )
         label_1.SetMinSize((50, 22))
         sizer_2.Add(label_1, 0, 0, 0)
@@ -339,21 +347,22 @@ class Main(wx.Frame):
         self.ctl_lcid.SetMinSize((250, 22))
         sizer_2.Add(self.ctl_lcid, 0, 0, 0)
 
-        self.btn_search = wx.Button(self.panel_1, wx.ID_ANY, "Search")
+        self.btn_search = wx.Button(self.panel_1, wx.ID_ANY, "搜索")
         self.btn_search.SetMinSize((84, 22))
         self.btn_search.Bind(wx.EVT_BUTTON, self.on_btn_search_pressed)
         sizer_2.Add(self.btn_search, 0, 0, 0)
 
         sizer_2.Add((20, 20), 0, 0, 0)
 
-        self.btn_save_to_kicad = wx.Button(self.panel_1, wx.ID_ANY, "Save")
+        self.btn_save_to_kicad = wx.Button(self.panel_1, wx.ID_ANY, "保存")
         self.btn_save_to_kicad.SetMinSize((84, 22))
-        self.btn_save_to_kicad.Bind(wx.EVT_BUTTON, self.on_btn_save_kicad_pressed)
+        self.btn_save_to_kicad.Bind(
+            wx.EVT_BUTTON, self.on_btn_save_kicad_pressed)
         sizer_2.Add(self.btn_save_to_kicad, 0, 0, 0)
 
         sizer_2.Add((20, 20), 0, 0, 0)
 
-        self.btn_adv_search = wx.Button(self.panel_1, wx.ID_ANY, "Adv Search")
+        self.btn_adv_search = wx.Button(self.panel_1, wx.ID_ANY, "高级搜索")
         self.btn_adv_search.SetMinSize((84, 22))
         self.btn_adv_search.Bind(wx.EVT_BUTTON, self.btn_adv_search_pressed)
         sizer_2.Add(self.btn_adv_search, 0, 0, 0)
@@ -397,7 +406,7 @@ class Main(wx.Frame):
         self.prodcut_picture = wx.StaticBitmap(
             self.panel_1,
             wx.ID_ANY,
-            DrawFilledBitmap(200, 200, label="Part Image\nNot Avaliable")
+            DrawFilledBitmap(200, 200, label="元件图片\n未找到")
         )
         self.prodcut_picture.SetMinSize((200, 200))
         sizer_5.Add(self.prodcut_picture, 0, 0, 0)
@@ -415,7 +424,7 @@ class Main(wx.Frame):
         part_info_row_sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer_6.Add(part_info_row_sizer, 0, wx.EXPAND, 0)
 
-        t_part_info = wx.StaticText(self.panel_3, wx.ID_ANY, "Part Info")
+        t_part_info = wx.StaticText(self.panel_3, wx.ID_ANY, "手册")
         t_part_info.SetFont(
             wx.Font(
                 14,
@@ -475,13 +484,15 @@ class Main(wx.Frame):
         product_root_sizer.Add(sizer_3, 0, 0, 0)
         product_root_sizer.AddSpacer(5)
 
-        self.img_EDASymbol = wx.StaticBitmap(self.panel_1, wx.ID_ANY, DrawFilledBitmap(250, 250))
+        self.img_EDASymbol = wx.StaticBitmap(
+            self.panel_1, wx.ID_ANY, DrawFilledBitmap(250, 250))
         self.img_EDASymbol.SetMinSize((250, 250))
         sizer_3.Add(self.img_EDASymbol, 0, 0, 0)
 
         sizer_3.AddSpacer(5)
 
-        self.img_EDAFootprint = wx.StaticBitmap(self.panel_1, wx.ID_ANY, DrawFilledBitmap(250, 250))
+        self.img_EDAFootprint = wx.StaticBitmap(
+            self.panel_1, wx.ID_ANY, DrawFilledBitmap(250, 250))
         self.img_EDAFootprint.SetMinSize((250, 250))
         sizer_3.Add(self.img_EDAFootprint, 0, 0, 0)
 
@@ -492,7 +503,8 @@ class Main(wx.Frame):
         panel_2_sizer = wx.BoxSizer(wx.VERTICAL)
 
         log_name = wx.StaticText(self.panel_2, wx.ID_ANY, "Logs")
-        log_name.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+        log_name.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT,
+                         wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
         panel_2_sizer.Add(log_name, 0, 0, 0)
 
         self.status = wx.TextCtrl(
@@ -510,17 +522,17 @@ class Main(wx.Frame):
         self.part_eda_id = wx.NewIdRef()
         self.part_lceda_id = wx.NewIdRef()
 
-        menubar = wx.MenuBar()
-        addMenu = wx.Menu()
-        easyeda_part = addMenu.Append(self.part_eda_id, 'EasyEda Part', 'EasyEda Part')
-        # easyeda_part.Bind(wx.EVT_MENU, lambda x: self.add_part_by_uuid(True))
-        lceda_part = addMenu.Append(self.part_lceda_id, 'LcEDA Part', 'LcEDA Part')
-        # lceda_part.Bind(wx.EVT_MENU, lambda x: self.add_part_by_uuid(False))
+        # menubar = wx.MenuBar()
+        # addMenu = wx.Menu()
+        # easyeda_part = addMenu.Append(self.part_eda_id, 'EasyEda Part', 'EasyEda Part')
+        # # easyeda_part.Bind(wx.EVT_MENU, lambda x: self.add_part_by_uuid(True))
+        # lceda_part = addMenu.Append(self.part_lceda_id, 'LcEDA Part', 'LcEDA Part')
+        # # lceda_part.Bind(wx.EVT_MENU, lambda x: self.add_part_by_uuid(False))
 
-        addMenu.Bind(wx.EVT_MENU, self.add_part_by_uuid)
-        menubar.Append(addMenu, 'Add Part')
+        # addMenu.Bind(wx.EVT_MENU, self.add_part_by_uuid)
+        # menubar.Append(addMenu, 'Add Part')
 
-        self.SetMenuBar(menubar)
+        # self.SetMenuBar(menubar)
 
         self.Layout()
         self.init_values()
@@ -633,7 +645,8 @@ class Main(wx.Frame):
 
         url = self.lcpart.get_ds_link()
         if url == "":
-            wx.MessageBox("No Datasheet Avaliable.", 'Info', wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox("No Datasheet Avaliable.", 'Info',
+                          wx.OK | wx.ICON_INFORMATION)
             return
         webbrowser.open(url)
 
@@ -649,16 +662,17 @@ class Main(wx.Frame):
         lcid = self.ctl_lcid.GetValue()
 
         if not lcid:
-            warn_dialog("LCID cannot be empty.")
+            warn_dialog("料号不能为空.")
             return
 
         if not LCID_RE.match(lcid):
-            warn_dialog(f"<{lcid}> is not a vaild LCID.")
+            warn_dialog(f"<{lcid}> 不是有效的立创料号.")
             return
 
-        logger.info(f"Get LCPart: {lcid}")
+        logger.info(f"获取信息: {lcid}")
 
         self.lcpart = LCPART(lcid)
+        print(self.lcpart)
         self.img_EDASymbol.SetBitmap(
             self.lcpart.get_symbol_img()
         )
@@ -678,15 +692,37 @@ class Main(wx.Frame):
 
         # update part info
         part_info = self.lcpart.get_part_info()
-        for attr in PART_INFO_CONF.values():
-            lc_value = part_info.get(attr['lc_key'], '-')
-            self.part_attrs[attr['name']].SetValue(lc_value)
-
+        # for attr in PART_INFO_CONF.values():
+        #     lc_value = part_info.get(attr['lc_key'], '-')  self.part_attrs[PART_INFO_CONF['name']].SetValue(str(lc_value))
+        print("厂商:", part_info["attributes"].get('Manufacturer', '-'))
+        self.part_attrs[PART_INFO_CONF['brand']['name']].SetValue(
+            str(part_info["attributes"].get('Manufacturer', '-'))
+        )
+        print("厂家编号:", part_info["attributes"].get('Manufacturer Part', '-'))
+        self.part_attrs[PART_INFO_CONF['model']['name']].SetValue(
+            str(part_info["attributes"].get('Manufacturer Part', '-'))
+        )
+        print("封装:", part_info["attributes"].get('Supplier Footprint', '-'))
+        self.part_attrs[PART_INFO_CONF['package']['name']].SetValue(
+            str(part_info["attributes"].get('Supplier Footprint', '-'))
+        )
+        print("分类:", part_info["tags"]["parent_tag"].get('name_cn', '-'))
+        self.part_attrs[PART_INFO_CONF['catelog']['name']].SetValue(
+            str(part_info["tags"]["parent_tag"].get('name_cn', '-'))
+        )
+        print("子类:", part_info["tags"]["child_tag"].get('name_cn', '-'))
+        self.part_attrs[PART_INFO_CONF['sub_catelog']['name']].SetValue(
+            str(part_info["tags"]["child_tag"].get('name_cn', '-'))
+        )
+        print("描述:", part_info.get('description', '-'))
+        self.part_attrs[PART_INFO_CONF['desc']['name']].SetValue(
+            str(part_info.get('description', '-'))
+        )
         # show datasheet & web ref btn
         self.btn_ds.Enable()
         self.btn_ref.Enable()
 
-        logger.info(f"Done.")
+        logger.info(f"获取完成")
 
     def btn_adv_search_pressed(self, e):
         if self.advsearch_manager is None:
@@ -708,7 +744,8 @@ class Main(wx.Frame):
         if self.lib_manager is None:
             self.lib_manager = LibManagerControl(self)
 
-        self.lib_manager.load_part(self.lcpart.lcid, self.lcpart.part_detail)    # type: ignore
+        self.lib_manager.load_part(
+            self.lcpart.lcid, self.lcpart.part_detail)    # type: ignore
         # self.lib_manager.load_part("C9872")
 
 

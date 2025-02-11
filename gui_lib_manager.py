@@ -63,7 +63,7 @@ class LCComponent:
         return self.symbol['head']['c_para']['name']
 
     def load_componnt(self):
-        logger.info("Load Component -> %s", self.lcid)
+        logger.info("下载数据 -> %s", self.lcid)
 
         req = requests.get(
             f"https://easyeda.com/api/products/{self.lcid}/components"
@@ -123,9 +123,10 @@ class LCComponent:
         return data
 
     def get_datasheet(self):
-        datasheet = self.footprint['dataStr']['head']['c_para']['link']    # type: ignore
+        # type: ignore
+        datasheet = self.footprint['dataStr']['head']['c_para']['link']
         if self.lc_data:
-            datasheet = self.lc_data['pdfUrl']
+            datasheet = self.lc_data["attributes"].get('Datasheet', "")
 
         return datasheet
 
@@ -146,13 +147,16 @@ class LCComponent:
         category = " - "
         desc = self.raw_data['description']     # type: ignore
         if desc == "" and self.lc_data:
-            lc_desc = self.lc_data.get('productIntroEn', "")
+            lc_desc = self.lc_data.get('description', "")
             if lc_desc:
                 desc = lc_desc
 
         # get datasheet
         if self.lc_data is not None:
-            category = f"{self.lc_data['parentCatalogName']} - {self.lc_data['catalogName']}"
+            parent_catalog_name = self.lc_data["tags"]["parent_tag"].get(
+                'name', '-')
+            catalog_name = self.lc_data["tags"]["child_tag"].get('name', '-')
+            category = f"{parent_catalog_name} - {catalog_name}"
 
         canvas = self.symbol['canvas']
         canvas = canvas.split("~")
@@ -187,7 +191,7 @@ class LCUUIDComponent(LCComponent):
         self.source_easyeda = source_easyeda
 
     def load_componnt(self):
-        logger.info("Load Component -> %s", self.lcid)
+        logger.info("下载数据 -> %s", self.lcid)
 
         url = f"https://easyeda.com/api/components/{self.lcid}"
 
@@ -232,13 +236,14 @@ class LibManagerFrame(wx.Dialog):
         sizer_left_panel = wx.BoxSizer(wx.VERTICAL)
         sizer_1.Add(sizer_left_panel, 1, wx.EXPAND, 0)
 
-        sizer_lib_path = wx.StaticBoxSizer(wx.StaticBox(self.panel_1, wx.ID_ANY, "Library Path"), wx.VERTICAL)
+        sizer_lib_path = wx.StaticBoxSizer(wx.StaticBox(
+            self.panel_1, wx.ID_ANY, "符号库目录"), wx.VERTICAL)
         sizer_left_panel.Add(sizer_lib_path, 0, wx.EXPAND, 0)
 
         sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_lib_path.Add(sizer_4, 0, wx.EXPAND, 0)
 
-        label_path = wx.StaticText(self.panel_1, wx.ID_ANY, "Directory:")
+        label_path = wx.StaticText(self.panel_1, wx.ID_ANY, "目录:")
         label_path.SetMinSize((100, 16))
         sizer_4.Add(label_path, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
@@ -249,7 +254,7 @@ class LibManagerFrame(wx.Dialog):
             self.panel_1,
             wx.ID_ANY,
             wx.EmptyString,
-            u"Select Library folder",
+            u"选择文件夹",
             wx.DefaultPosition,
             wx.DefaultSize,
             wx.DIRP_SMALL | wx.DIRP_USE_TEXTCTRL | wx.BORDER_SIMPLE
@@ -260,66 +265,69 @@ class LibManagerFrame(wx.Dialog):
         sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_lib_path.Add(sizer_5, 0, wx.EXPAND, 0)
 
-        label_1 = wx.StaticText(self.panel_1, wx.ID_ANY, "Library Name:")
+        label_1 = wx.StaticText(self.panel_1, wx.ID_ANY, "符号库名称:")
         label_1.SetMinSize((100, 16))
         sizer_5.Add(label_1, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        self.txt_lib_name = wx.TextCtrl(self.panel_1, wx.ID_ANY, "lcsc")
+        self.txt_lib_name = wx.TextCtrl(self.panel_1, wx.ID_ANY, "kicadlib")
         sizer_5.Add(self.txt_lib_name, 1, wx.ALIGN_CENTER_VERTICAL, 0)
 
         sizer_5.Add((50, 25), 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.panel_1, wx.ID_ANY, "Symbol & Footprint"), wx.VERTICAL)
+        sizer_6 = wx.StaticBoxSizer(wx.StaticBox(
+            self.panel_1, wx.ID_ANY, "符号和封装"), wx.VERTICAL)
         self.symbol_footprint_sizer = sizer_6
         sizer_left_panel.Add(sizer_6, 1, wx.EXPAND, 0)
 
         sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_6.Add(sizer_7, 0, wx.EXPAND, 0)
 
-        label_2 = wx.StaticText(self.panel_1, wx.ID_ANY, "Export:")
+        label_2 = wx.StaticText(self.panel_1, wx.ID_ANY, "导出:")
         label_2.SetMinSize((100, 25))
         sizer_7.Add(label_2, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        self.cb_symbol = wx.CheckBox(self.panel_1, wx.ID_ANY, "Symbol")
+        self.cb_symbol = wx.CheckBox(self.panel_1, wx.ID_ANY, "符号")
         self.cb_symbol.SetMinSize((100, 18))
         self.cb_symbol.SetValue(1)
         # self.cb_symbol.Disable()
         sizer_7.Add(self.cb_symbol, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        self.cb_footprint = wx.CheckBox(self.panel_1, wx.ID_ANY, "Footprint")
+        self.cb_footprint = wx.CheckBox(self.panel_1, wx.ID_ANY, "封装")
         self.cb_footprint.SetMinSize((100, 18))
         self.cb_footprint.SetValue(1)
         # self.cb_footprint.Disable()
         sizer_7.Add(self.cb_footprint, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        self.cb_3dmodal = wx.CheckBox(self.panel_1, wx.ID_ANY, "3D Model")
+        self.cb_3dmodal = wx.CheckBox(self.panel_1, wx.ID_ANY, "3D模型")
         self.cb_3dmodal.SetMinSize((100, 18))
         self.cb_3dmodal.SetValue(1)
         # self.cb_3dmodal.Disable()
         sizer_7.Add(self.cb_3dmodal, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        symbol_conf_sizer = wx.StaticBoxSizer(wx.StaticBox(self.panel_1, wx.ID_ANY, "Symbol Settings"), wx.VERTICAL)
+        symbol_conf_sizer = wx.StaticBoxSizer(wx.StaticBox(
+            self.panel_1, wx.ID_ANY, "符号设置"), wx.VERTICAL)
         self.symbol_conf_sizer = symbol_conf_sizer
         sizer_6.Add(symbol_conf_sizer, 0, wx.EXPAND, 0)
 
         sizer_symbol_name = wx.BoxSizer(wx.HORIZONTAL)
         symbol_conf_sizer.Add(sizer_symbol_name, 0, wx.EXPAND, 0)
 
-        label_5 = wx.StaticText(self.panel_1, wx.ID_ANY, "Symbol Name:")
+        label_5 = wx.StaticText(self.panel_1, wx.ID_ANY, "符号名称:")
         label_5.SetMinSize((120, 16))
         sizer_symbol_name.Add(label_5, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
         self.txt_symbol_name = wx.TextCtrl(self.panel_1, wx.ID_ANY, "")
         self.txt_symbol_name.SetMinSize((-1, 22))
         # self.txt_symbol_name.Disable()
-        sizer_symbol_name.Add(self.txt_symbol_name, 1, wx.ALIGN_CENTER_VERTICAL, 0)
+        sizer_symbol_name.Add(self.txt_symbol_name, 1,
+                              wx.ALIGN_CENTER_VERTICAL, 0)
 
         sizer_symbol_name.Add((10, 25), 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
         sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
         symbol_conf_sizer.Add(sizer_8, 0, wx.EXPAND, 0)
 
-        label_3 = wx.StaticText(self.panel_1, wx.ID_ANY, "Scale:")
+        label_3 = wx.StaticText(self.panel_1, wx.ID_ANY, "比例:")
         label_3.SetMinSize((120, 16))
         sizer_8.Add(label_3, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
@@ -335,7 +343,7 @@ class LibManagerFrame(wx.Dialog):
 
         sizer_8.Add((30, 25), 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-        label_4 = wx.StaticText(self.panel_1, wx.ID_ANY, "Symbol Size:")
+        label_4 = wx.StaticText(self.panel_1, wx.ID_ANY, "大小:")
         label_4.SetMinSize((80, 16))
         sizer_8.Add(label_4, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
@@ -345,7 +353,7 @@ class LibManagerFrame(wx.Dialog):
 
         # footprint
         footprint_conf_sizer = wx.StaticBoxSizer(
-            wx.StaticBox(self.panel_1, wx.ID_ANY, "Footprint Settings"),
+            wx.StaticBox(self.panel_1, wx.ID_ANY, "封装设置"),
             wx.VERTICAL
         )
         self.footprint_conf_sizer = footprint_conf_sizer
@@ -354,7 +362,7 @@ class LibManagerFrame(wx.Dialog):
         sizer_footprint_name = wx.BoxSizer(wx.HORIZONTAL)
         footprint_conf_sizer.Add(sizer_footprint_name, 0, wx.EXPAND, 0)
 
-        label_6 = wx.StaticText(self.panel_1, wx.ID_ANY, "Footprint Name:")
+        label_6 = wx.StaticText(self.panel_1, wx.ID_ANY, "封装名称:")
         label_6.SetMinSize((120, 16))
         sizer_footprint_name.Add(label_6, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
@@ -369,7 +377,7 @@ class LibManagerFrame(wx.Dialog):
 
         # 3d
         model3d_conf_sizer = wx.StaticBoxSizer(
-            wx.StaticBox(self.panel_1, wx.ID_ANY, "3D Model Settings"),
+            wx.StaticBox(self.panel_1, wx.ID_ANY, "3D模型设置"),
             wx.VERTICAL
         )
         self.model3d_conf_sizer = model3d_conf_sizer
@@ -378,7 +386,7 @@ class LibManagerFrame(wx.Dialog):
         sizer_3dmodel_name = wx.BoxSizer(wx.HORIZONTAL)
         model3d_conf_sizer.Add(sizer_3dmodel_name, 0, wx.EXPAND, 0)
 
-        label_16 = wx.StaticText(self.panel_1, wx.ID_ANY, "3D Model Name:")
+        label_16 = wx.StaticText(self.panel_1, wx.ID_ANY, "3D模型名称:")
         label_16.SetMinSize((120, 16))
         sizer_3dmodel_name.Add(label_16, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
@@ -410,18 +418,18 @@ class LibManagerFrame(wx.Dialog):
         sizer_1.Add(sizer_2, 0, 0, 0)
 
         sizer_2.Add((100, 10), 0, 0, 0)
-        self.btn_load = wx.Button(self.panel_1, wx.ID_ANY, "Load Part")
+        self.btn_load = wx.Button(self.panel_1, wx.ID_ANY, "下载数据")
         sizer_2.Add(self.btn_load, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
 
         sizer_2.AddSpacer(10)
 
-        self.btn_gen = wx.Button(self.panel_1, wx.ID_ANY, "Generate")
+        self.btn_gen = wx.Button(self.panel_1, wx.ID_ANY, "导出")
         self.btn_gen.Disable()
         sizer_2.Add(self.btn_gen, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
 
         sizer_2.Add((100, 100), 0, 0, 0)
 
-        self.btn_close = wx.Button(self.panel_1, wx.ID_ANY, "Close")
+        self.btn_close = wx.Button(self.panel_1, wx.ID_ANY, "取消")
         self.btn_close.Bind(wx.EVT_BUTTON, self.on_btn_close_press)
         sizer_2.Add(self.btn_close, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
 
@@ -553,7 +561,8 @@ class LibManagerControl:
             self.footprint_manager.add_3d_model(
                 model3d_name, model3d_data, True
             )
-            model_path = self.footprint_manager.get_3d_model_ref_path(model3d_name)
+            model_path = self.footprint_manager.get_3d_model_ref_path(
+                model3d_name)
             footprint_data.append(
                 Model(
                     filename=model_path,
@@ -566,8 +575,8 @@ class LibManagerControl:
         )
 
     def check_lib_path(self):
+        # 判断库路径是否为空
         lib_name = self.frame.txt_lib_name.GetValue()
-
         if self.lib_name == "":
             wx.MessageBox(
                 "Library name is empty", 'Error', wx.OK | wx.ICON_ERROR
@@ -577,7 +586,6 @@ class LibManagerControl:
         if lib_name != self.lib_name and lib_name != 'lcsc':
             self.save_lib_name(lib_name)
         self.lib_name = lib_name
-
         self.lib_root = self.frame.lib_path_picker.GetPath()
         if self.lib_root == "":
             wx.MessageBox(
@@ -595,7 +603,7 @@ class LibManagerControl:
         self.gen_symbol(symbol_name, footprint_name)
         self.gen_footprint(footprint_name, model3d_name)
         wx.MessageBox(
-            "Component Generated.", 'Info', wx.OK | wx.ICON_INFORMATION
+            "导出成功", 'Info', wx.OK | wx.ICON_INFORMATION
         )
 
     def do_load_component(self, e):
@@ -641,11 +649,13 @@ class LibManagerControl:
             self.load_lib_name()
 
     def save_lib_name(self, name):
-        lib_name_path = Path(self.lib_root).joinpath(".KLPM.conf")   # type: ignore
+        lib_name_path = Path(self.lib_root).joinpath(
+            ".KLPM.conf")   # type: ignore
         lib_name_path.write_text(name)
 
     def load_lib_name(self):
-        lib_name_path = Path(self.lib_root).joinpath(".KLPM.conf")   # type: ignore
+        lib_name_path = Path(self.lib_root).joinpath(
+            ".KLPM.conf")   # type: ignore
         if lib_name_path.is_file():
             ctx = lib_name_path.read_text().strip()
 
@@ -678,7 +688,8 @@ class LibManagerControl:
         )
         self.frame.cb_footprint.Bind(
             wx.EVT_CHECKBOX,
-            lambda e: self.check_box_clicked(self.frame.footprint_conf_sizer, e)
+            lambda e: self.check_box_clicked(
+                self.frame.footprint_conf_sizer, e)
         )
         self.frame.cb_3dmodal.Bind(
             wx.EVT_CHECKBOX,
@@ -696,7 +707,7 @@ class LibManagerControl:
         if self.lib_root is not None:
             self.frame.lib_path_picker.SetPath(self.lib_root)
 
-        self.frame.SetTitle(f"Symbol & Footprint Export - {lcid}")
+        self.frame.SetTitle(f"导出符号与封装 - {lcid}")
 
         # init log.
         if self.cx_handler is None:
@@ -704,8 +715,8 @@ class LibManagerControl:
             self.cx_handler.setLevel(logging.INFO)
             logger.addHandler(self.cx_handler)
 
-        logger.info("Symbol & Footprint Export")
-        logger.info("Currnet Component: %s", lcid)
+        logger.info("导出符号与封装")  # 翻译：符号和封装导出
+        logger.info("元件编号: %s", lcid)  # 翻译：当前组件
 
         self.disable_all_children(self.frame.symbol_footprint_sizer)
 

@@ -57,7 +57,7 @@ class SchematicManager:
         if not self.path.exists():
             return
 
-        with self.path.open('r') as fp:
+        with self.path.open('r',encoding='utf-8') as fp:
             for line in fp:
                 # line = line.strip()
                 # if line == "" or line[0] == "#":
